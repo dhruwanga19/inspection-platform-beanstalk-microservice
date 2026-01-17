@@ -1,0 +1,1 @@
+# inspection-platform-beanstalk-microservice
