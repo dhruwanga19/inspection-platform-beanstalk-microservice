@@ -95,11 +95,13 @@ jobs:
       - name: Package Frontend
         run: |
           cd services/frontend
-          # Create package with built files for nginx deployment
+          # Create package with built files and Node.js server
           zip -r ../../frontend-${{ steps.version.outputs.frontend }}.zip \
             dist/ \
-            .platform/ \
-            -x "node_modules/*" "src/*" "*.config.js" "server.js" "Procfile" ".ebextensions/*"
+            server.js \
+            package.json \
+            Procfile \
+            -x "node_modules/*" "src/*" "*.config.js" ".ebextensions/*" ".platform/*"
 
       # Package Inspection API
       - name: Package Inspection API
