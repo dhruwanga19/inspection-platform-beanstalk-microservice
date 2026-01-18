@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 # CI/CD Pipeline for 3-Tier Application with Blue/Green Deployment
 
 name: Deploy to AWS Elastic Beanstalk
@@ -15,7 +14,6 @@ env:
   EB_ENV_FRONTEND: inspection-frontend-dev
   EB_ENV_INSPECTION_API: inspection-api-dev
   EB_ENV_REPORT_SERVICE: report-service-dev
-  # Use the Elastic Beanstalk bucket directly (it already exists and has proper permissions)
   S3_BUCKET: elasticbeanstalk-us-east-1-977237383734
 
 jobs:
