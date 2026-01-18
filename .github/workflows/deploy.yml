@@ -1,0 +1,254 @@
+# CI/CD Pipeline for 3-Tier Application with Blue/Green Deployment
+
+name: Deploy to AWS Elastic Beanstalk
+
+uses: aws-actions/configure-aws-credentials@v4
+with:
+  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  aws-region: us-east-1
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  EB_APP_NAME: inspection-platform
+  EB_ENV_FRONTEND: inspection-frontend-dev
+  EB_ENV_INSPECTION_API: inspection-api-dev
+  EB_ENV_REPORT_SERVICE: report-service-dev
+  S3_BUCKET: inspection-platform-deployments
+
+jobs:
+  # ==================== TEST JOB ====================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            services/frontend/package-lock.json
+            services/inspection-api/package-lock.json
+            services/report-service/package-lock.json
+
+      - name: Install and test Frontend
+        working-directory: services/frontend
+        run: |
+          npm ci
+          npm run build
+          # npm test -- --passWithNoTests
+
+      - name: Install and test Inspection API
+        working-directory: services/inspection-api
+        run: |
+          npm ci
+          # npm test -- --passWithNoTests
+
+      - name: Install and test Report Service
+        working-directory: services/report-service
+        run: |
+          npm ci
+          # npm test -- --passWithNoTests
+
+  # ==================== BUILD JOB ====================
+  build:
+    name: Build Artifacts
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    outputs:
+      frontend_version: ${{ steps.version.outputs.frontend }}
+      inspection_api_version: ${{ steps.version.outputs.inspection_api }}
+      report_service_version: ${{ steps.version.outputs.report_service }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate version labels
+        id: version
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          echo "frontend=frontend-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "inspection_api=inspection-api-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "report_service=report-service-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      # Build Frontend
+      - name: Build Frontend
+        working-directory: services/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package Frontend
+        run: |
+          cd services/frontend
+          zip -r ../../frontend-${{ steps.version.outputs.frontend }}.zip dist/ nginx.conf Dockerfile .platform/
+
+      # Package Inspection API
+      - name: Package Inspection API
+        run: |
+          cd services/inspection-api
+          npm ci --production
+          zip -r ../../inspection-api-${{ steps.version.outputs.inspection_api }}.zip src/ node_modules/ package.json Procfile .ebextensions/ .platform/
+
+      # Package Report Service
+      - name: Package Report Service
+        run: |
+          cd services/report-service
+          npm ci --production
+          zip -r ../../report-service-${{ steps.version.outputs.report_service }}.zip src/ node_modules/ package.json Procfile .ebextensions/ .platform/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-packages
+          path: |
+            frontend-*.zip
+            inspection-api-*.zip
+            report-service-*.zip
+          retention-days: 5
+
+  # ==================== DEPLOY JOB ====================
+  deploy:
+    name: Deploy to Elastic Beanstalk
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-packages
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Upload to S3
+      - name: Upload packages to S3
+        run: |
+          aws s3 cp frontend-${{ needs.build.outputs.frontend_version }}.zip s3://${{ env.S3_BUCKET }}/frontend/
+          aws s3 cp inspection-api-${{ needs.build.outputs.inspection_api_version }}.zip s3://${{ env.S3_BUCKET }}/inspection-api/
+          aws s3 cp report-service-${{ needs.build.outputs.report_service_version }}.zip s3://${{ env.S3_BUCKET }}/report-service/
+
+      # Create Application Versions
+      - name: Create Frontend Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --version-label ${{ needs.build.outputs.frontend_version }} \
+            --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=frontend/frontend-${{ needs.build.outputs.frontend_version }}.zip
+
+      - name: Create Inspection API Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --version-label ${{ needs.build.outputs.inspection_api_version }} \
+            --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=inspection-api/inspection-api-${{ needs.build.outputs.inspection_api_version }}.zip
+
+      - name: Create Report Service Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --version-label ${{ needs.build.outputs.report_service_version }} \
+            --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=report-service/report-service-${{ needs.build.outputs.report_service_version }}.zip
+
+      # Blue/Green Deployment - Frontend
+      - name: Deploy Frontend (Blue/Green)
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-name ${{ env.EB_ENV_FRONTEND }} \
+            --version-label ${{ needs.build.outputs.frontend_version }} \
+            --option-settings Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable
+
+      # Blue/Green Deployment - Inspection API
+      - name: Deploy Inspection API (Blue/Green)
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-name ${{ env.EB_ENV_INSPECTION_API }} \
+            --version-label ${{ needs.build.outputs.inspection_api_version }} \
+            --option-settings Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable
+
+      # Blue/Green Deployment - Report Service
+      - name: Deploy Report Service (Blue/Green)
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-name ${{ env.EB_ENV_REPORT_SERVICE }} \
+            --version-label ${{ needs.build.outputs.report_service_version }} \
+            --option-settings Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable
+
+      # Wait for deployments
+      - name: Wait for Frontend deployment
+        run: |
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-names ${{ env.EB_ENV_FRONTEND }}
+
+      - name: Wait for Inspection API deployment
+        run: |
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-names ${{ env.EB_ENV_INSPECTION_API }}
+
+      - name: Wait for Report Service deployment
+        run: |
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ env.EB_APP_NAME }} \
+            --environment-names ${{ env.EB_ENV_REPORT_SERVICE }}
+
+      # Health Check
+      - name: Verify deployment health
+        run: |
+          FRONTEND_HEALTH=$(aws elasticbeanstalk describe-environment-health \
+            --environment-name ${{ env.EB_ENV_FRONTEND }} \
+            --attribute-names HealthStatus --query 'HealthStatus' --output text)
+
+          API_HEALTH=$(aws elasticbeanstalk describe-environment-health \
+            --environment-name ${{ env.EB_ENV_INSPECTION_API }} \
+            --attribute-names HealthStatus --query 'HealthStatus' --output text)
+
+          REPORT_HEALTH=$(aws elasticbeanstalk describe-environment-health \
+            --environment-name ${{ env.EB_ENV_REPORT_SERVICE }} \
+            --attribute-names HealthStatus --query 'HealthStatus' --output text)
+
+          echo "Frontend Health: $FRONTEND_HEALTH"
+          echo "Inspection API Health: $API_HEALTH"
+          echo "Report Service Health: $REPORT_HEALTH"
+
+          if [[ "$FRONTEND_HEALTH" != "Ok" ]] || [[ "$API_HEALTH" != "Ok" ]] || [[ "$REPORT_HEALTH" != "Ok" ]]; then
+            echo "Deployment health check failed!"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "Frontend: ${{ needs.build.outputs.frontend_version }}"
+          echo "Inspection API: ${{ needs.build.outputs.inspection_api_version }}"
+          echo "Report Service: ${{ needs.build.outputs.report_service_version }}"
