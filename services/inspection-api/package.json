@@ -1,0 +1,20 @@
+{
+  "name": "inspection-api",
+  "version": "1.0.0",
+  "description": "Inspection API microservice for Building Inspection Platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.16.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

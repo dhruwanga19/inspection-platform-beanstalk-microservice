@@ -1,0 +1,38 @@
+# terraform/terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "dev"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+
+# Database Configuration
+db_username = "admin"
+db_password = "YourSecurePassword123!"  # Change this!
+db_name     = "inspection_platform"
+
+# RDS High Availability
+# Set to false to stay within AWS Free Tier (no Multi-AZ, limited backups)
+# Set to true for production-grade HA (Multi-AZ enabled, 7-day backups)
+enable_multi_az = true
+
+# ============================================
+# FREE TIER NOTES:
+# - Multi-AZ is NOT free tier eligible (~$25+/month extra)
+# - Read Replica is NOT free tier eligible (~$12+/month extra)
+# - db.t3.micro with 20GB storage IS free tier eligible
+# 
+# For strict free tier, set:
+#   enable_multi_az = false
+# And consider removing the read replica from rds.tf
+# ============================================
+
+# ============================================
+# IMPORTANT: Do not commit terraform.tfvars to git!
+# Add it to .gitignore
+# ============================================
+
+# For production, use AWS Secrets Manager or environment variables:
+# export TF_VAR_db_password="your-secure-password"
