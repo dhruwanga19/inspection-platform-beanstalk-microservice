@@ -111,6 +111,18 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
     value     = "enhanced"
   }
 
+  # Health Check for Frontend
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/health"
+  }
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Port"
+    value     = "8080"
+  }
+
   # Environment Variables
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
@@ -120,7 +132,7 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "PORT"
-    value     = "80"
+    value     = "8080"
   }
 
   tags = {

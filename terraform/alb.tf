@@ -1,6 +1,3 @@
-# ALB for path-based routing
-
-# ==================== APPLICATION LOAD BALANCER ====================
 # Main ALB for path-based routing to all services
 resource "aws_lb" "main" {
   name               = "inspection-${var.environment}-alb"
@@ -31,7 +28,7 @@ resource "aws_lb_listener" "http" {
 # Target Group - Frontend
 resource "aws_lb_target_group" "frontend" {
   name        = "inspection-${var.environment}-frontend-tg"
-  port        = 80
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "instance"
@@ -41,7 +38,7 @@ resource "aws_lb_target_group" "frontend" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/"
+    path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
@@ -147,4 +144,3 @@ output "alb_zone_id" {
   description = "ALB Zone ID for Route 53"
   value       = aws_lb.main.zone_id
 }
-

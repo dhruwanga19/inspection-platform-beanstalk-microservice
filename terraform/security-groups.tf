@@ -1,4 +1,3 @@
-# terraform/security-groups.tf
 # Security Groups for 3-Tier Architecture
 
 # ALB Security Group
@@ -43,8 +42,8 @@ resource "aws_security_group" "frontend" {
 
   ingress {
     description     = "HTTP from ALB"
-    from_port       = 80
-    to_port         = 80
+    from_port       = 8080
+    to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }

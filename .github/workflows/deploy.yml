@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 # CI/CD Pipeline for 3-Tier Application with Blue/Green Deployment
 
 name: Deploy to AWS Elastic Beanstalk
@@ -95,7 +96,15 @@ jobs:
       - name: Package Frontend
         run: |
           cd services/frontend
-          zip -r ../../frontend-${{ steps.version.outputs.frontend }}.zip dist/ nginx.conf Dockerfile .platform/
+          # Create package with built files and server
+          zip -r ../../frontend-${{ steps.version.outputs.frontend }}.zip \
+            dist/ \
+            server.js \
+            package.json \
+            Procfile \
+            .ebextensions/ \
+            .platform/ \
+            -x "node_modules/*" "src/*" "*.config.js"
 
       # Package Inspection API
       - name: Package Inspection API

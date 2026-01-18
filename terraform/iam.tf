@@ -76,15 +76,50 @@ resource "aws_iam_role_policy_attachment" "beanstalk_ec2_multicontainer" {
   policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
 }
 
-# Custom policy for S3 access (image uploads)
-resource "aws_iam_role_policy" "beanstalk_ec2_s3" {
-  name = "inspection-${var.environment}-s3-access"
+# CRITICAL: EC2 permissions for Beanstalk instances
+resource "aws_iam_role_policy" "beanstalk_ec2_permissions" {
+  name = "inspection-${var.environment}-ec2-permissions"
   role = aws_iam_role.beanstalk_ec2.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "EC2Describe"
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeImages",
+          "ec2:DescribeInstances",
+          "ec2:DescribeKeyPairs",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeVpcs"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "S3AppBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectAcl",
+          "s3:GetObjectVersion",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+          "s3:GetBucketPolicy"
+        ]
+        Resource = [
+          "arn:aws:s3:::elasticbeanstalk-*",
+          "arn:aws:s3:::elasticbeanstalk-*/*",
+          "arn:aws:s3:::inspection-platform-deployments-*",
+          "arn:aws:s3:::inspection-platform-deployments-*/*"
+        ]
+      },
+      {
+        Sid    = "S3ImageBucket"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
@@ -96,28 +131,37 @@ resource "aws_iam_role_policy" "beanstalk_ec2_s3" {
           aws_s3_bucket.images.arn,
           "${aws_s3_bucket.images.arn}/*"
         ]
-      }
-    ]
-  })
-}
-
-# CloudWatch Logs policy
-resource "aws_iam_role_policy" "beanstalk_ec2_cloudwatch" {
-  name = "inspection-${var.environment}-cloudwatch-logs"
-  role = aws_iam_role.beanstalk_ec2.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
+        Sid    = "CloudWatchLogs"
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "logs:DescribeLogStreams"
+          "logs:DescribeLogStreams",
+          "logs:DescribeLogGroups"
         ]
         Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Sid    = "CloudWatchMetrics"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "XRay"
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords"
+        ]
+        Resource = "*"
       }
     ]
   })
