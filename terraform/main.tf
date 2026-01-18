@@ -74,6 +74,18 @@ variable "enable_multi_az" {
   default     = true # Set to false to stay within free tier
 }
 
+variable "rds_publicly_accessible" {
+  description = "Make RDS publicly accessible (for development only!)"
+  type        = bool
+  default     = false
+}
+
+variable "my_ip_cidr" {
+  description = "Your IP address in CIDR notation for RDS access (e.g., 1.2.3.4/32)"
+  type        = string
+  default     = "" # Leave empty to skip the rule
+}
+
 # Data source to get the latest Node.js 20 solution stack
 data "aws_elastic_beanstalk_solution_stack" "nodejs" {
   most_recent = true

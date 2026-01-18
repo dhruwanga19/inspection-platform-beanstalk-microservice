@@ -26,6 +26,29 @@ resource "aws_db_parameter_group" "mysql" {
   }
 }
 
+# Public DB Subnet Group (for development/testing only)
+resource "aws_db_subnet_group" "public" {
+  count      = var.rds_publicly_accessible ? 1 : 0
+  name       = "inspection-${var.environment}-db-subnet-group-public"
+  subnet_ids = aws_subnet.public[*].id
+
+  tags = {
+    Name = "inspection-${var.environment}-db-subnet-group-public"
+  }
+}
+
+# Security group rule to allow your IP (for development)
+resource "aws_security_group_rule" "rds_my_ip" {
+  count             = var.my_ip_cidr != "" ? 1 : 0
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = [var.my_ip_cidr]
+  security_group_id = aws_security_group.rds.id
+  description       = "MySQL access from developer IP"
+}
+
 # Primary RDS Instance (Multi-AZ)
 resource "aws_db_instance" "primary" {
   identifier = "inspection-${var.environment}-mysql-primary"
@@ -48,10 +71,10 @@ resource "aws_db_instance" "primary" {
   password = var.db_password
   port     = 3306
 
-  # Network
-  db_subnet_group_name   = aws_db_subnet_group.main.name
+  # Network - Use public subnet group if publicly accessible
+  db_subnet_group_name   = var.rds_publicly_accessible ? aws_db_subnet_group.public[0].name : aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
-  publicly_accessible    = false
+  publicly_accessible    = var.rds_publicly_accessible
 
   # High Availability - FREE TIER COMPATIBLE
   # Note: Multi-AZ is NOT free tier eligible, but keeping for HA requirement
