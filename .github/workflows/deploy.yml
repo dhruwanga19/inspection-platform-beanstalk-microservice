@@ -14,7 +14,7 @@ env:
   EB_ENV_FRONTEND: inspection-frontend-dev
   EB_ENV_INSPECTION_API: inspection-api-dev
   EB_ENV_REPORT_SERVICE: report-service-dev
-  S3_BUCKET: inspection-platform-deployments
+  S3_BUCKET: inspection-platform-deployments-977237383734
 
 jobs:
   # ==================== TEST JOB ====================
