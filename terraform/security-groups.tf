@@ -74,6 +74,24 @@ resource "aws_security_group" "inspection_api" {
     security_groups = [aws_security_group.alb.id]
   }
 
+  # Allow traffic from Frontend instances (for server-side proxy)
+  ingress {
+    description     = "HTTP from Frontend"
+    from_port       = 3001
+    to_port         = 3001
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend.id]
+  }
+
+  # Allow traffic from EB-generated ALBs (for health checks)
+  ingress {
+    description = "HTTP from anywhere in VPC (EB ALBs)"
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -98,6 +116,24 @@ resource "aws_security_group" "report_service" {
     to_port         = 3002
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
+  }
+
+  # Allow traffic from Frontend instances (for server-side proxy)
+  ingress {
+    description     = "HTTP from Frontend"
+    from_port       = 3002
+    to_port         = 3002
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend.id]
+  }
+
+  # Allow traffic from EB-generated ALBs (for health checks)
+  ingress {
+    description = "HTTP from anywhere in VPC (EB ALBs)"
+    from_port   = 3002
+    to_port     = 3002
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   egress {

@@ -91,7 +91,7 @@ export default function App() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <ClipboardList size={24} />
             Building Inspection Platform
-            <span className="text-xs bg-blue-500 px-2 py-1 rounded ml-2">ECS</span>
+            <span className="text-xs bg-blue-500 px-2 py-1 rounded ml-2">Beanstalk</span>
           </h1>
           <button onClick={() => { setView('list'); setSelectedInspection(null); loadInspections(); }} className="flex items-center gap-1 hover:underline">
             <Home size={18} /> Dashboard
