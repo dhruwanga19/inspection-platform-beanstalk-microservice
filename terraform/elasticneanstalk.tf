@@ -67,7 +67,7 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
   setting {
     namespace = "aws:autoscaling:asg"
     name      = "MinSize"
-    value     = "2"
+    value     = "1"
   }
   setting {
     namespace = "aws:autoscaling:asg"
@@ -120,10 +120,15 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:default"
     name      = "Port"
-    value     = "8080"
+    value     = "80"
   }
 
   # Environment Variables
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "PORT"
+    value     = "8080"
+  }
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "NODE_ENV"
@@ -194,7 +199,7 @@ resource "aws_elastic_beanstalk_environment" "inspection_api" {
   setting {
     namespace = "aws:autoscaling:asg"
     name      = "MinSize"
-    value     = "2"
+    value     = "1"
   }
   setting {
     namespace = "aws:autoscaling:asg"
@@ -373,7 +378,7 @@ resource "aws_elastic_beanstalk_environment" "report_service" {
   setting {
     namespace = "aws:autoscaling:asg"
     name      = "MinSize"
-    value     = "2"
+    value     = "1"
   }
   setting {
     namespace = "aws:autoscaling:asg"

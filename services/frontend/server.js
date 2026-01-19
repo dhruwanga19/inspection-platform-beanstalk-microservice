@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 
 const app = express();
+// Elastic Beanstalk sets PORT environment variable, default to 8080 for local dev
 const PORT = process.env.PORT || 8080;
 
 // Serve static files from dist folder
