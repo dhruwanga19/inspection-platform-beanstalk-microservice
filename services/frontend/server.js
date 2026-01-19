@@ -1,27 +1,44 @@
 const express = require("express");
 const path = require("path");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Log all requests for debugging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
-  next();
-});
+const INSPECTION_API_URL = process.env.INSPECTION_API_URL;
+const REPORT_API_URL = process.env.REPORT_API_URL;
 
-// Serve static files from dist folder with proper MIME types
+console.log("Proxying /api/inspections to:", INSPECTION_API_URL);
+console.log("Proxying /api/reports to:", REPORT_API_URL);
+
+// Proxy API requests to backend services
 app.use(
-  express.static(path.join(__dirname, "dist"), {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript");
-      } else if (filePath.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      }
-    },
+  "/api/inspections",
+  createProxyMiddleware({
+    target: INSPECTION_API_URL,
+    changeOrigin: true,
+    logLevel: "debug",
   }),
 );
+
+app.use(
+  "/api/presigned-url",
+  createProxyMiddleware({
+    target: INSPECTION_API_URL,
+    changeOrigin: true,
+  }),
+);
+
+app.use(
+  "/api/reports",
+  createProxyMiddleware({
+    target: REPORT_API_URL,
+    changeOrigin: true,
+  }),
+);
+
+// Serve static files from dist folder
+app.use(express.static(path.join(__dirname, "dist")));
 
 // Health check endpoint
 app.get("/health", (req, res) => {

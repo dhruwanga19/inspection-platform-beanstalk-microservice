@@ -185,7 +185,10 @@ jobs:
             --application-name ${{ env.EB_APP_NAME }} \
             --environment-name ${{ env.EB_ENV_FRONTEND }} \
             --version-label ${{ needs.build.outputs.frontend_version }} \
-            --option-settings Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable
+            --option-settings \
+              Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable \
+              Namespace=aws:elasticbeanstalk:application:environment,OptionName=INSPECTION_API_URL,Value=${{ secrets.INSPECTION_API_URL }} \
+              Namespace=aws:elasticbeanstalk:application:environment,OptionName=REPORT_API_URL,Value=${{ secrets.REPORT_API_URL }}
 
       # Blue/Green Deployment - Inspection API
       - name: Deploy Inspection API (Blue/Green)
