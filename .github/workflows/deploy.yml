@@ -101,7 +101,8 @@ jobs:
             server.js \
             package.json \
             Procfile \
-            -x "node_modules/*" "src/*" "*.config.js" ".ebextensions/*" ".platform/*"
+            .ebextensions/ \
+            -x "node_modules/*" "src/*" "*.config.js" ".platform/*"
 
       # Package Inspection API
       - name: Package Inspection API
