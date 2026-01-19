@@ -25,37 +25,17 @@ if (!REPORT_API_URL) {
 }
 
 // Proxy API requests to backend services
-// Note: Mounting at /api and forwarding to backends that also have /api prefix
+// Mount at /api/* to proxy all API requests
 if (INSPECTION_API_URL) {
+  // Proxy inspection API requests (/api/inspections/*, /api/presigned-url)
   app.use(
-    "/api/inspections",
+    ["/api/inspections", "/api/presigned-url"],
     createProxyMiddleware({
       target: INSPECTION_API_URL,
       changeOrigin: true,
-      pathRewrite: {
-        "^/api": "/api", // Preserve the /api prefix
-      },
       logLevel: "debug",
       onError: (err, req, res) => {
-        console.error("Proxy Error [/api/inspections]:", err.message);
-        res.status(502).json({
-          error: "Bad Gateway",
-          message: "Unable to reach inspection API",
-        });
-      },
-    }),
-  );
-
-  app.use(
-    "/api/presigned-url",
-    createProxyMiddleware({
-      target: INSPECTION_API_URL,
-      changeOrigin: true,
-      pathRewrite: {
-        "^/api": "/api", // Preserve the /api prefix
-      },
-      onError: (err, req, res) => {
-        console.error("Proxy Error [/api/presigned-url]:", err.message);
+        console.error("Proxy Error [inspection-api]:", err.message);
         res.status(502).json({
           error: "Bad Gateway",
           message: "Unable to reach inspection API",
@@ -64,13 +44,7 @@ if (INSPECTION_API_URL) {
     }),
   );
 } else {
-  app.use("/api/inspections", (req, res) => {
-    res.status(503).json({
-      error: "Service Unavailable",
-      message: "INSPECTION_API_URL not configured",
-    });
-  });
-  app.use("/api/presigned-url", (req, res) => {
+  app.use(["/api/inspections", "/api/presigned-url"], (req, res) => {
     res.status(503).json({
       error: "Service Unavailable",
       message: "INSPECTION_API_URL not configured",
@@ -79,16 +53,14 @@ if (INSPECTION_API_URL) {
 }
 
 if (REPORT_API_URL) {
+  // Proxy report service requests (/api/reports/*)
   app.use(
     "/api/reports",
     createProxyMiddleware({
       target: REPORT_API_URL,
       changeOrigin: true,
-      pathRewrite: {
-        "^/api": "/api", // Preserve the /api prefix
-      },
       onError: (err, req, res) => {
-        console.error("Proxy Error [/api/reports]:", err.message);
+        console.error("Proxy Error [report-service]:", err.message);
         res.status(502).json({
           error: "Bad Gateway",
           message: "Unable to reach report service",
