@@ -25,12 +25,16 @@ if (!REPORT_API_URL) {
 }
 
 // Proxy API requests to backend services
+// Note: Mounting at /api and forwarding to backends that also have /api prefix
 if (INSPECTION_API_URL) {
   app.use(
     "/api/inspections",
     createProxyMiddleware({
       target: INSPECTION_API_URL,
       changeOrigin: true,
+      pathRewrite: {
+        "^/api": "/api", // Preserve the /api prefix
+      },
       logLevel: "debug",
       onError: (err, req, res) => {
         console.error("Proxy Error [/api/inspections]:", err.message);
@@ -47,6 +51,9 @@ if (INSPECTION_API_URL) {
     createProxyMiddleware({
       target: INSPECTION_API_URL,
       changeOrigin: true,
+      pathRewrite: {
+        "^/api": "/api", // Preserve the /api prefix
+      },
       onError: (err, req, res) => {
         console.error("Proxy Error [/api/presigned-url]:", err.message);
         res.status(502).json({
@@ -77,6 +84,9 @@ if (REPORT_API_URL) {
     createProxyMiddleware({
       target: REPORT_API_URL,
       changeOrigin: true,
+      pathRewrite: {
+        "^/api": "/api", // Preserve the /api prefix
+      },
       onError: (err, req, res) => {
         console.error("Proxy Error [/api/reports]:", err.message);
         res.status(502).json({
