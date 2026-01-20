@@ -25,22 +25,15 @@ if (!REPORT_API_URL) {
 }
 
 // Proxy API requests to backend services
-// Mount at /api to proxy all API requests and preserve the full path
+// Mount at /api/* to proxy all API requests
 if (INSPECTION_API_URL) {
-  // Proxy inspection API requests to backend
+  // Proxy inspection API requests (/api/inspections/*, /api/presigned-url)
   app.use(
-    "/api",
+    ["/api/inspections", "/api/presigned-url"],
     createProxyMiddleware({
       target: INSPECTION_API_URL,
       changeOrigin: true,
       logLevel: "debug",
-      // Filter: only proxy /api/inspections* and /api/presigned-url
-      filter: (pathname, req) => {
-        return (
-          pathname.startsWith("/api/inspections") ||
-          pathname.startsWith("/api/presigned-url")
-        );
-      },
       onError: (err, req, res) => {
         console.error("Proxy Error [inspection-api]:", err.message);
         res.status(502).json({
@@ -50,19 +43,22 @@ if (INSPECTION_API_URL) {
       },
     }),
   );
+} else {
+  app.use(["/api/inspections", "/api/presigned-url"], (req, res) => {
+    res.status(503).json({
+      error: "Service Unavailable",
+      message: "INSPECTION_API_URL not configured",
+    });
+  });
 }
 
 if (REPORT_API_URL) {
-  // Proxy report service requests to backend
+  // Proxy report service requests (/api/reports/*)
   app.use(
-    "/api",
+    "/api/reports",
     createProxyMiddleware({
       target: REPORT_API_URL,
       changeOrigin: true,
-      // Filter: only proxy /api/reports*
-      filter: (pathname, req) => {
-        return pathname.startsWith("/api/reports");
-      },
       onError: (err, req, res) => {
         console.error("Proxy Error [report-service]:", err.message);
         res.status(502).json({
@@ -72,15 +68,14 @@ if (REPORT_API_URL) {
       },
     }),
   );
-}
-
-// Fallback for unconfigured API routes
-app.use("/api/*", (req, res) => {
-  res.status(503).json({
-    error: "Service Unavailable",
-    message: "API service not configured",
+} else {
+  app.use("/api/reports", (req, res) => {
+    res.status(503).json({
+      error: "Service Unavailable",
+      message: "REPORT_API_URL not configured",
+    });
   });
-});
+}
 
 // Serve static files from dist folder
 app.use(express.static(path.join(__dirname, "dist")));
