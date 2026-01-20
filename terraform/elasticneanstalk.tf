@@ -75,7 +75,8 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
     value     = "4"
   }
 
-  # Load Balancer
+  # ==================== SHARED LOAD BALANCER CONFIGURATION ====================
+  # Use shared ALB instead of creating a dedicated one
   setting {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "EnvironmentType"
@@ -87,9 +88,31 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
     value     = "application"
   }
   setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerIsShared"
+    value     = "true"
+  }
+  setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "SharedLoadBalancer"
+    value     = aws_lb.main.arn
+  }
+  setting {
     namespace = "aws:elbv2:loadbalancer"
     name      = "SecurityGroups"
     value     = aws_security_group.alb.id
+  }
+
+  # Listener rule configuration for path-based routing (catch-all for frontend)
+  setting {
+    namespace = "aws:elbv2:listenerrule:frontendrule"
+    name      = "PathPatterns"
+    value     = "/*"
+  }
+  setting {
+    namespace = "aws:elbv2:listenerrule:frontendrule"
+    name      = "Priority"
+    value     = "999"
   }
 
   # Deployment Policy (Blue/Green via Immutable)
@@ -120,7 +143,7 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
   setting {
     namespace = "aws:elasticbeanstalk:environment:process:default"
     name      = "Port"
-    value     = "80"
+    value     = "8080"
   }
 
   # Environment Variables
@@ -134,11 +157,6 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
     name      = "NODE_ENV"
     value     = "production"
   }
-  setting {
-    namespace = "aws:elasticbeanstalk:application:environment"
-    name      = "PORT"
-    value     = "8080"
-  }
 
   tags = {
     Name        = "inspection-frontend-${var.environment}"
@@ -146,7 +164,7 @@ resource "aws_elastic_beanstalk_environment" "frontend" {
     Service     = "frontend"
   }
 
-  depends_on = [aws_nat_gateway.main]
+  depends_on = [aws_nat_gateway.main, aws_lb.main, aws_lb_listener.http]
 }
 
 # ==================== INSPECTION API ENVIRONMENT ====================
@@ -234,7 +252,8 @@ resource "aws_elastic_beanstalk_environment" "inspection_api" {
     value     = "30"
   }
 
-  # Load Balancer
+  # ==================== SHARED LOAD BALANCER CONFIGURATION ====================
+  # Use shared ALB instead of creating a dedicated one
   setting {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "EnvironmentType"
@@ -246,9 +265,31 @@ resource "aws_elastic_beanstalk_environment" "inspection_api" {
     value     = "application"
   }
   setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerIsShared"
+    value     = "true"
+  }
+  setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "SharedLoadBalancer"
+    value     = aws_lb.main.arn
+  }
+  setting {
     namespace = "aws:elbv2:loadbalancer"
     name      = "SecurityGroups"
     value     = aws_security_group.alb.id
+  }
+
+  # Listener rule configuration for path-based routing
+  setting {
+    namespace = "aws:elbv2:listenerrule:inspectionapirule"
+    name      = "PathPatterns"
+    value     = "/api/inspections,/api/inspections/*,/api/presigned-url"
+  }
+  setting {
+    namespace = "aws:elbv2:listenerrule:inspectionapirule"
+    name      = "Priority"
+    value     = "100"
   }
 
   # Health Check
@@ -325,7 +366,7 @@ resource "aws_elastic_beanstalk_environment" "inspection_api" {
     Service     = "inspection-api"
   }
 
-  depends_on = [aws_db_instance.primary, aws_nat_gateway.main]
+  depends_on = [aws_db_instance.primary, aws_nat_gateway.main, aws_lb.main, aws_lb_listener.http]
 }
 
 # ==================== REPORT SERVICE ENVIRONMENT ====================
@@ -386,7 +427,8 @@ resource "aws_elastic_beanstalk_environment" "report_service" {
     value     = "4"
   }
 
-  # Load Balancer
+  # ==================== SHARED LOAD BALANCER CONFIGURATION ====================
+  # Use shared ALB instead of creating a dedicated one
   setting {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "EnvironmentType"
@@ -398,9 +440,31 @@ resource "aws_elastic_beanstalk_environment" "report_service" {
     value     = "application"
   }
   setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerIsShared"
+    value     = "true"
+  }
+  setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "SharedLoadBalancer"
+    value     = aws_lb.main.arn
+  }
+  setting {
     namespace = "aws:elbv2:loadbalancer"
     name      = "SecurityGroups"
     value     = aws_security_group.alb.id
+  }
+
+  # Listener rule configuration for path-based routing
+  setting {
+    namespace = "aws:elbv2:listenerrule:reportservicerule"
+    name      = "PathPatterns"
+    value     = "/api/reports,/api/reports/*"
+  }
+  setting {
+    namespace = "aws:elbv2:listenerrule:reportservicerule"
+    name      = "Priority"
+    value     = "110"
   }
 
   # Health Check
@@ -477,5 +541,5 @@ resource "aws_elastic_beanstalk_environment" "report_service" {
     Service     = "report-service"
   }
 
-  depends_on = [aws_db_instance.primary, aws_db_instance.read_replica, aws_nat_gateway.main]
+  depends_on = [aws_db_instance.primary, aws_db_instance.read_replica, aws_nat_gateway.main, aws_lb.main, aws_lb_listener.http]
 }

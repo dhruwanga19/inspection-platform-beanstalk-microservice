@@ -179,6 +179,7 @@ jobs:
             --source-bundle S3Bucket=${{ env.S3_BUCKET }},S3Key=report-service/report-service-${{ needs.build.outputs.report_service_version }}.zip
 
       # Blue/Green Deployment - Frontend
+      # NOTE: With shared ALB, API URLs are not needed - ALB routes traffic directly
       - name: Deploy Frontend (Blue/Green)
         run: |
           aws elasticbeanstalk update-environment \
@@ -186,9 +187,7 @@ jobs:
             --environment-name ${{ env.EB_ENV_FRONTEND }} \
             --version-label ${{ needs.build.outputs.frontend_version }} \
             --option-settings \
-              Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable \
-              Namespace=aws:elasticbeanstalk:application:environment,OptionName=INSPECTION_API_URL,Value=${{ secrets.INSPECTION_API_URL }} \
-              Namespace=aws:elasticbeanstalk:application:environment,OptionName=REPORT_API_URL,Value=${{ secrets.REPORT_API_URL }}
+              Namespace=aws:elasticbeanstalk:command,OptionName=DeploymentPolicy,Value=Immutable
 
       # Blue/Green Deployment - Inspection API
       - name: Deploy Inspection API (Blue/Green)

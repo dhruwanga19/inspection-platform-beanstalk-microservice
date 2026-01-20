@@ -1,81 +1,14 @@
-const dotenv = require("dotenv");
 const express = require("express");
 const path = require("path");
-const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
-dotenv.config();
 const PORT = process.env.PORT || 8080;
 
-const INSPECTION_API_URL = process.env.INSPECTION_API_URL;
-const REPORT_API_URL = process.env.REPORT_API_URL;
-
-// Validate environment variables
-if (!INSPECTION_API_URL) {
-  console.error("⚠️  WARNING: INSPECTION_API_URL is not set!");
-  console.error("Environment variables:", process.env);
-} else {
-  console.log("✓ Proxying /api/inspections to:", INSPECTION_API_URL);
-}
-
-if (!REPORT_API_URL) {
-  console.error("⚠️  WARNING: REPORT_API_URL is not set!");
-} else {
-  console.log("✓ Proxying /api/reports to:", REPORT_API_URL);
-}
-
-// Proxy API requests to backend services
-// Mount at /api/* to proxy all API requests
-if (INSPECTION_API_URL) {
-  // Proxy inspection API requests (/api/inspections/*, /api/presigned-url)
-  app.use(
-    ["/api/inspections", "/api/presigned-url"],
-    createProxyMiddleware({
-      target: INSPECTION_API_URL,
-      changeOrigin: true,
-      logLevel: "debug",
-      onError: (err, req, res) => {
-        console.error("Proxy Error [inspection-api]:", err.message);
-        res.status(502).json({
-          error: "Bad Gateway",
-          message: "Unable to reach inspection API",
-        });
-      },
-    }),
-  );
-} else {
-  app.use(["/api/inspections", "/api/presigned-url"], (req, res) => {
-    res.status(503).json({
-      error: "Service Unavailable",
-      message: "INSPECTION_API_URL not configured",
-    });
-  });
-}
-
-if (REPORT_API_URL) {
-  // Proxy report service requests (/api/reports/*)
-  app.use(
-    "/api/reports",
-    createProxyMiddleware({
-      target: REPORT_API_URL,
-      changeOrigin: true,
-      onError: (err, req, res) => {
-        console.error("Proxy Error [report-service]:", err.message);
-        res.status(502).json({
-          error: "Bad Gateway",
-          message: "Unable to reach report service",
-        });
-      },
-    }),
-  );
-} else {
-  app.use("/api/reports", (req, res) => {
-    res.status(503).json({
-      error: "Service Unavailable",
-      message: "REPORT_API_URL not configured",
-    });
-  });
-}
+// NOTE: With shared ALB and path-based routing, API requests are routed
+// directly to backend services by the load balancer. No proxy needed.
+// - /api/inspections/* -> Inspection API (port 3001)
+// - /api/reports/* -> Report Service (port 3002)
+// - /* -> Frontend (this server)
 
 // Serve static files from dist folder
 app.use(express.static(path.join(__dirname, "dist")));
