@@ -35,14 +35,106 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# NOTE: Target groups and listener rules are now managed by Elastic Beanstalk
-# Each EB environment creates its own target group and listener rule
-# with path-based routing configured in elasticbeanstalk.tf
+# NOTE: Target groups are created by Elastic Beanstalk environments.
+# However, EB creates listener rules with host-header conditions that only work
+# when accessing via the EB environment URL, not the ALB DNS directly.
 #
-# Routing Configuration:
-# - /api/inspections/*, /api/presigned-url -> Inspection API (Priority 100)
-# - /api/reports/*                         -> Report Service (Priority 110)
-# - /* (catch-all)                         -> Frontend (Priority 999)
+# The rules below create path-only listener rules that work with the ALB DNS.
+# They reference the target groups created by EB environments.
+
+# ==================== PATH-ONLY LISTENER RULES ====================
+# These rules enable path-based routing via the ALB DNS (without host-header conditions)
+
+# Data sources to get EB-created target groups
+data "aws_lb_target_group" "frontend" {
+  tags = {
+    "elasticbeanstalk:environment-name" = aws_elastic_beanstalk_environment.frontend.name
+  }
+  depends_on = [aws_elastic_beanstalk_environment.frontend]
+}
+
+data "aws_lb_target_group" "inspection_api" {
+  tags = {
+    "elasticbeanstalk:environment-name" = aws_elastic_beanstalk_environment.inspection_api.name
+  }
+  depends_on = [aws_elastic_beanstalk_environment.inspection_api]
+}
+
+data "aws_lb_target_group" "report_service" {
+  tags = {
+    "elasticbeanstalk:environment-name" = aws_elastic_beanstalk_environment.report_service.name
+  }
+  depends_on = [aws_elastic_beanstalk_environment.report_service]
+}
+
+# Listener rule for Inspection API (path-only, no host-header)
+resource "aws_lb_listener_rule" "inspection_api_path" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = data.aws_lb_target_group.inspection_api.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/inspections", "/api/inspections/*", "/api/presigned-url"]
+    }
+  }
+
+  tags = {
+    Name = "inspection-api-path-rule"
+  }
+
+  depends_on = [aws_elastic_beanstalk_environment.inspection_api]
+}
+
+# Listener rule for Report Service (path-only, no host-header)
+resource "aws_lb_listener_rule" "report_service_path" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 110
+
+  action {
+    type             = "forward"
+    target_group_arn = data.aws_lb_target_group.report_service.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/reports", "/api/reports/*"]
+    }
+  }
+
+  tags = {
+    Name = "report-service-path-rule"
+  }
+
+  depends_on = [aws_elastic_beanstalk_environment.report_service]
+}
+
+# Listener rule for Frontend catch-all (path-only, no host-header)
+resource "aws_lb_listener_rule" "frontend_path" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 999
+
+  action {
+    type             = "forward"
+    target_group_arn = data.aws_lb_target_group.frontend.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  tags = {
+    Name = "frontend-path-rule"
+  }
+
+  depends_on = [aws_elastic_beanstalk_environment.frontend]
+}
 
 # ==================== OUTPUTS ====================
 output "alb_dns_name" {
